@@ -33,7 +33,7 @@
     }
 
     .card {
-      width: min(100%, 520px);
+      width: min(100%, 560px);
       padding: clamp(28px, 6vw, 48px);
       background: var(--card);
       border: 1px solid rgba(220, 227, 242, 0.8);
@@ -53,7 +53,17 @@
     h1 { margin: 0; font-size: clamp(2rem, 7vw, 3rem); letter-spacing: -0.04em; }
     .intro { margin: 12px 0 28px; color: var(--muted); line-height: 1.6; }
 
-    .units { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 5px; margin-bottom: 24px; background: #f1f4fb; border-radius: 12px; }
+    .units {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 5px;
+      margin-bottom: 24px;
+      background: #f1f4fb;
+      border: 0;
+      border-radius: 12px;
+    }
+
     .units label { cursor: pointer; text-align: center; }
     .units input { position: absolute; opacity: 0; pointer-events: none; }
     .units span { display: block; padding: 10px; border-radius: 8px; color: var(--muted); font-weight: 700; }
@@ -62,12 +72,42 @@
     .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .field label { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 700; }
     .input-wrap { position: relative; }
-    input[type="number"] { width: 100%; padding: 13px 52px 13px 14px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: #fbfcff; font: inherit; font-size: 1rem; outline: none; }
+    input[type="number"] {
+      width: 100%;
+      padding: 13px 52px 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      background: #fbfcff;
+      font: inherit;
+      font-size: 1rem;
+      outline: none;
+    }
     input[type="number"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.14); }
     .unit-label { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); color: var(--muted); font-size: 0.85rem; }
 
-    button { width: 100%; margin-top: 24px; padding: 14px; border: 0; border-radius: 10px; color: white; background: var(--primary); cursor: pointer; font: inherit; font-weight: 800; transition: background 0.2s, transform 0.2s; }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      color: white;
+      background: var(--primary);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      transition: background 0.2s, transform 0.2s;
+    }
     button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    button.secondary { background: #e8ecfb; color: var(--text); }
+    button.secondary:hover { background: #dde6ff; }
     button:focus-visible { outline: 3px solid rgba(67, 97, 238, 0.35); outline-offset: 2px; }
 
     .error { min-height: 22px; margin: 12px 0 0; color: var(--danger); font-size: 0.9rem; }
@@ -76,10 +116,23 @@
     .result p { margin: 0; color: var(--muted); }
     .bmi-value { margin: 4px 0; color: var(--primary); font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; }
     .category { font-weight: 800; }
-    .note { margin-top: 24px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
+
+    .range-guide {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #f8faff;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+    .range-guide strong { color: var(--text); }
+
+    .note { margin-top: 16px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 
     @media (max-width: 420px) {
-      .fields { grid-template-columns: 1fr; }
+      .fields, .actions { grid-template-columns: 1fr; }
       .card { padding: 28px 22px; }
     }
   </style>
@@ -119,7 +172,11 @@
         </div>
       </div>
       <p class="error" id="error" role="alert" aria-live="polite"></p>
-      <button type="submit">Calculate BMI</button>
+
+      <div class="actions">
+        <button type="submit">Calculate BMI</button>
+        <button type="button" class="secondary" id="reset-btn">Reset</button>
+      </div>
     </form>
 
     <section class="result" id="result" aria-live="polite" aria-atomic="true">
@@ -127,11 +184,17 @@
       <div class="bmi-value" id="bmi-value">—</div>
       <div class="category" id="category"></div>
     </section>
+
+    <div class="range-guide">
+      <strong>Category ranges:</strong> Underweight &lt; 18.5, Normal 18.5–24.9, Overweight 25–29.9, Obesity 30+
+    </div>
+
     <p class="note">BMI is a general screening measure and does not replace advice from a qualified healthcare professional.</p>
   </main>
 
   <script>
     const form = document.getElementById('bmi-form');
+    const resetBtn = document.getElementById('reset-btn');
     const weightInput = document.getElementById('weight');
     const heightInput = document.getElementById('height');
     const weightUnit = document.getElementById('weight-unit');
@@ -162,7 +225,18 @@
       return 'Obesity';
     }
 
+    function resetForm() {
+      form.reset();
+      document.querySelector('input[name="units"][value="metric"]').checked = true;
+      weightInput.value = '';
+      heightInput.value = '';
+      result.classList.remove('visible');
+      error.textContent = '';
+      updateUnits();
+    }
+
     document.querySelectorAll('input[name="units"]').forEach((radio) => radio.addEventListener('change', updateUnits));
+    resetBtn.addEventListener('click', resetForm);
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
