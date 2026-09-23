@@ -88,7 +88,7 @@
 
     .actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 12px;
       margin-top: 24px;
     }
@@ -108,6 +108,8 @@
     button:hover { background: var(--primary-dark); transform: translateY(-1px); }
     button.secondary { background: #e8ecfb; color: var(--text); }
     button.secondary:hover { background: #dde6ff; }
+    button.danger { background: #fff1f1; color: #9c2d2d; }
+    button.danger:hover { background: #ffe1e1; }
     button:focus-visible { outline: 3px solid rgba(67, 97, 238, 0.35); outline-offset: 2px; }
 
     .error { min-height: 22px; margin: 12px 0 0; color: var(--danger); font-size: 0.9rem; }
@@ -128,6 +130,56 @@
       line-height: 1.6;
     }
     .range-guide strong { color: var(--text); }
+
+    .history {
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #fbfcff;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .history-header h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .history-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f1f5ff;
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+
+    .history-list span {
+      color: var(--muted);
+    }
+
+    .empty-history {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin: 0;
+    }
 
     .note { margin-top: 16px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 
@@ -176,6 +228,7 @@
       <div class="actions">
         <button type="submit">Calculate BMI</button>
         <button type="button" class="secondary" id="reset-btn">Reset</button>
+        <button type="button" class="secondary danger" id="clear-history-btn">Clear history</button>
       </div>
     </form>
 
@@ -189,12 +242,21 @@
       <strong>Category ranges:</strong> Underweight &lt; 18.5, Normal 18.5–24.9, Overweight 25–29.9, Obesity 30+
     </div>
 
+    <section class="history" aria-live="polite">
+      <div class="history-header">
+        <h2>Recent results</h2>
+      </div>
+      <ul class="history-list" id="history-list"></ul>
+      <p class="empty-history" id="empty-history">No BMI results saved yet.</p>
+    </section>
+
     <p class="note">BMI is a general screening measure and does not replace advice from a qualified healthcare professional.</p>
   </main>
 
   <script>
     const form = document.getElementById('bmi-form');
     const resetBtn = document.getElementById('reset-btn');
+    const clearHistoryBtn = document.getElementById('clear-history-btn');
     const weightInput = document.getElementById('weight');
     const heightInput = document.getElementById('height');
     const weightUnit = document.getElementById('weight-unit');
@@ -203,6 +265,10 @@
     const result = document.getElementById('result');
     const bmiValue = document.getElementById('bmi-value');
     const category = document.getElementById('category');
+    const historyList = document.getElementById('history-list');
+    const emptyHistory = document.getElementById('empty-history');
+
+    const STORAGE_KEY = 'bmi-calculator-history';
 
     function selectedUnit() {
       return document.querySelector('input[name="units"]:checked').value;
@@ -225,6 +291,39 @@
       return 'Obesity';
     }
 
+    function getHistory() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        return Array.isArray(stored) ? stored : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveHistory(entries) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+
+    function renderHistory() {
+      const entries = getHistory();
+      historyList.innerHTML = '';
+
+      if (!entries.length) {
+        emptyHistory.style.display = 'block';
+        return;
+      }
+
+      emptyHistory.style.display = 'none';
+      entries.slice(0, 5).forEach((entry) => {
+        const item = document.createElement('li');
+        item.innerHTML = `
+          <strong>${entry.bmi}</strong>
+          <span>${entry.category} · ${entry.date}</span>
+        `;
+        historyList.appendChild(item);
+      });
+    }
+
     function resetForm() {
       form.reset();
       document.querySelector('input[name="units"][value="metric"]').checked = true;
@@ -235,8 +334,14 @@
       updateUnits();
     }
 
+    function clearHistory() {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+    }
+
     document.querySelectorAll('input[name="units"]').forEach((radio) => radio.addEventListener('change', updateUnits));
     resetBtn.addEventListener('click', resetForm);
+    clearHistoryBtn.addEventListener('click', clearHistory);
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -257,11 +362,25 @@
       }
 
       const bmi = weightKg / (heightM ** 2);
+      const categoryName = interpretBmi(bmi);
+
       bmiValue.textContent = bmi.toFixed(2);
-      category.textContent = interpretBmi(bmi);
+      category.textContent = categoryName;
       error.textContent = '';
       result.classList.add('visible');
+
+      const history = getHistory();
+      history.unshift({
+        bmi: bmi.toFixed(2),
+        category: categoryName,
+        date: new Date().toLocaleDateString()
+      });
+      saveHistory(history.slice(0, 5));
+      renderHistory();
     });
+
+    renderHistory();
+    updateUnits();
   </script>
 </body>
 </html>
